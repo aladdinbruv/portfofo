@@ -1,0 +1,14 @@
+:root {
+  --moroccan-blue: #3A5F8C;
+  --desert-orange: #D96C06;
+  --mint-green: #8FBC8F;
+  --gold-accent: #FFD700;
+}
+
+body {
+  background: linear-gradient(
+    45deg,
+    var(--moroccan-blue),
+    var(--desert-orange)
+  );
+}
