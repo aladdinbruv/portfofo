@@ -9,6 +9,8 @@ import './components/PortfolioOverlay.css'
 import { Genie } from './components/Genie'
 import { Palace } from './components/Palace'
 import { TreasureChest } from './components/TreasureChest'
+import MoroccanFloor from './components/MoroccanFloor'
+import { createMosaicTransition, animateTransition } from './transitions'
 
 function ParticleEffect() {
   const ref = useRef()
@@ -33,6 +35,8 @@ function Experience() {
   const [showGenie, setShowGenie] = useState(false)
   const [currentSection, setCurrentSection] = useState('about')
   const [selectedProject, setSelectedProject] = useState(null)
+  const [transition, setTransition] = useState(null)
+  const sceneRef = useRef()
 
   const projects = [
     {
@@ -63,23 +67,62 @@ function Experience() {
     education: { carpet: [-4, 0, 4], camera: [-4, 4, 16] },
     contact: { carpet: [4, 0, 4], camera: [4, 4, 16] }
   }
-  
-  useEffect(() => {
-    const handleSectionChange = (section) => {
-      setCurrentSection(section)
-    }
-  
-    window.addEventListener('sectionChange', (e) => handleSectionChange(e.detail))
-    return () => window.removeEventListener('sectionChange', handleSectionChange)
-  }, [])
 
   const handleProjectClick = (project) => {
     setSelectedProject(project)
-    window.dispatchEvent(new CustomEvent('projectSelect', { detail: project }))
+    if (!transition) {
+      const newTransition = createMosaicTransition()
+      setTransition(newTransition)
+      if (sceneRef.current) {
+        sceneRef.current.add(newTransition.mesh)
+        // Adjust position and scale for full coverage
+        newTransition.mesh.scale.set(1.2, 1.2, 1)
+        newTransition.mesh.position.z = 0.5
+      }
+    }
+    if (transition) {
+      transition.mesh.position.z = 0.5
+      animateTransition(transition.material, () => {
+        // You can add additional logic here after the transition completes
+        console.log('Selected project:', project.title)
+      })
+    }
   }
   
+  useEffect(() => {
+    const handleSectionChange = (section) => {
+      if (!transition) {
+        const newTransition = createMosaicTransition()
+        setTransition(newTransition)
+        if (sceneRef.current) {
+          sceneRef.current.add(newTransition.mesh)
+          newTransition.mesh.scale.set(1.2, 1.2, 1)
+          newTransition.mesh.position.z = 0.5
+          animateTransition(newTransition.material, () => {
+            setCurrentSection(section)
+          })
+        }
+        return
+      }
+
+      if (sceneRef.current && transition) {
+        transition.mesh.position.z = 0.5
+        animateTransition(transition.material, () => {
+          setCurrentSection(section)
+        })
+      }
+    }
+  
+    window.addEventListener('sectionChange', (e) => handleSectionChange(e.detail))
+    return () => {
+      window.removeEventListener('sectionChange', handleSectionChange)
+      if (transition) transition.dispose()
+    }
+  }, [transition])
+
   return (
-    <>
+    <group ref={sceneRef}>
+      <MoroccanFloor />
       <Palace />
       <FlyingCarpet position={sectionPositions[currentSection].carpet} />
       <group onClick={() => setShowGenie(!showGenie)}>
@@ -99,7 +142,7 @@ function Experience() {
       <directionalLight position={[10, 10, 5]} intensity={1} />
       <Environment preset="sunset" />
       <CameraControls currentSection={currentSection} positions={sectionPositions} />
-    </>
+    </group>
   )
 }
 
@@ -108,7 +151,12 @@ function CameraControls({ currentSection, positions }) {
   
   useFrame(() => {
     const targetPosition = positions[currentSection].camera
-    camera.position.lerp(new THREE.Vector3(...targetPosition), 0.02)
+    camera.position.lerp(new THREE.Vector3(...targetPosition), 0.015) // Slower, smoother camera movement
+    
+    // Add subtle camera rotation for more dynamic feel
+    const targetRotation = new THREE.Vector3(0, Math.sin(Date.now() * 0.0005) * 0.1, 0)
+    camera.rotation.x += (targetRotation.x - camera.rotation.x) * 0.02
+    camera.rotation.y += (targetRotation.y - camera.rotation.y) * 0.02
   })
   
   return <OrbitControls enableZoom={false} />
@@ -153,9 +201,9 @@ function MagicLamp() {
 function FlyingCarpet({ position = [0, 0, 0] }) {
   return (
     <Float
-      speed={1.5}
-      rotationIntensity={0.5}
-      floatIntensity={0.5}
+      speed={2}
+      rotationIntensity={0.3}
+      floatIntensity={0.4}
       position={position}
     >
       <mesh>
